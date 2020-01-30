@@ -115,8 +115,8 @@ def main(cluster_name=None, service_name=None):
         public_name = first_int['PrivateIpAddresses'][0]['Association']['PublicDnsName']
         sg_id = first_int['Groups'][0]['GroupId']
         sg_name = first_int['Groups'][0]['GroupName']
-        print(f'\n{last_status}\t{ id }\t{ public_ip }\t{ private_ip }\t{ public_name }\t'
-              f'{ host_port }:{ container_port }\t{ sg_id }\t{ sg_name }\n')
+        print(f'{last_status}\t{ id }\t{ public_ip }\t{ private_ip }\t{ public_name }\t'
+              f'{ host_port }:{ container_port }\t{ sg_id }\t{ sg_name }')
 
 
 if __name__ == '__main__':
@@ -130,7 +130,9 @@ if __name__ == '__main__':
         except IndexError:
             service_list(cluster_name=cluster_name)
         else:
+            print()
             main(cluster_name=cluster_name, service_name=service_name)
+            print()
 
 
 
