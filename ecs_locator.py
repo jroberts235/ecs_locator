@@ -2,7 +2,6 @@
 
 import sys
 import boto3
-from pprint import pprint
 
 ecs_client = boto3.client('ecs')
 ec2_client = boto3.client('ec2')
@@ -28,12 +27,19 @@ def service_list(cluster_name=None):
 
 
 def main(cluster_name=None, service_name=None):
-
-    response = ecs_client.list_tasks(
-        cluster=cluster_name,
-        serviceName=service_name,
-        desiredStatus='RUNNING',
-    )
+    response = None
+    try:
+        response = ecs_client.list_tasks(
+            cluster=cluster_name,
+            serviceName=service_name,
+            desiredStatus='RUNNING',
+        )
+    except ecs_client.exceptions.ServiceNotFoundException:
+        print(f'Error: No service named "{ service_name }" not found in cluster: { cluster_name }')
+        exit(1)
+    except ecs_client.exceptions.ClusterNotFoundException:
+        print(f'Error: Cluster name "{ cluster_name }" not found')
+        exit(1)
 
     response = ecs_client.describe_services(
         cluster=cluster_name,
@@ -45,23 +51,23 @@ def main(cluster_name=None, service_name=None):
         ]
     )
 
-    try:
-        task_def = response['services'][0]['taskDefinition']
-    except IndexError:
-        print(f'Error: { service_name } not found in { cluster_name } cluster!\n')
-        exit(1)
-    else:
-        response = ecs_client.describe_task_definition(
-            taskDefinition=task_def,
-            include=[
-                'TAGS',
-            ]
-        )
+    task_def = response['services'][0]['taskDefinition']
+
+    response = ecs_client.describe_task_definition(
+        taskDefinition=task_def,
+        include=[
+            'TAGS',
+        ]
+    )
 
     try:
-        port = response['taskDefinition']['containerDefinitions'][0]['portMappings'][0]['containerPort']
+        container_port = response['taskDefinition']['containerDefinitions'][0]['portMappings'][0]['containerPort']
     except IndexError:
-        port = 'none'
+        container_port = 'none'
+    try:
+        host_port = response['taskDefinition']['containerDefinitions'][0]['portMappings'][0]['hostPort']
+    except IndexError:
+        host_port = '0'
 
     response = ecs_client.list_tasks(
         cluster=cluster_name,
@@ -81,45 +87,36 @@ def main(cluster_name=None, service_name=None):
         )
 
         last_status = response['tasks'][0]['lastStatus']
+        container_arn = response['tasks'][0]['containerInstanceArn']
 
-        try:
-            container_arn = response['tasks'][0]['containerInstanceArn']
-        except IndexError:
-            print(f'Error: "container_arn" not found for { task_arn } on { cluster_name } cluster!\n')
-            exit(1)
-        else:
-            response = ecs_client.describe_container_instances(
-                cluster=cluster_name,
-                containerInstances=[
-                    container_arn,
-                ],
-                include=[
-                    'TAGS',
-                ]
-            )
+        response = ecs_client.describe_container_instances(
+            cluster=cluster_name,
+            containerInstances=[
+                container_arn,
+            ],
+            include=[
+                'TAGS',
+            ]
+        )
 
-        try:
-            ec2_id = response['containerInstances'][0]['ec2InstanceId']
-        except IndexError:
-            print(f'Error: "ec2_id" not found running { container_arn } on { cluster_name } cluster!\n')
-            exit(1)
-        else:
+        ec2_id = response['containerInstances'][0]['ec2InstanceId']
 
-            response = ec2_client.describe_instances(
-                InstanceIds=[
-                    ec2_id,
-                ],
-            )
+        response = ec2_client.describe_instances(
+            InstanceIds=[
+                ec2_id,
+            ],
+        )
 
-            id = ec2_id
-            all_priv_ints = response['Reservations'][0]['Instances'][0]['NetworkInterfaces']
-            first_int = response['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]
-            public_ip = first_int['PrivateIpAddresses'][0]['Association']['PublicIp']
-            private_ip = [interface['PrivateIpAddress'] for interface in all_priv_ints]
-            public_name = first_int['PrivateIpAddresses'][0]['Association']['PublicDnsName']
-            sg_id = first_int['Groups'][0]['GroupId']
-            sg_name = first_int['Groups'][0]['GroupName']
-            print(f'{last_status}\t{ id }\t{ public_ip }\t{ private_ip }\t{ public_name }\t{ port }\t{ sg_id }\t{ sg_name }')
+        id = ec2_id
+        all_priv_ints = response['Reservations'][0]['Instances'][0]['NetworkInterfaces']
+        first_int = response['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]
+        public_ip = first_int['PrivateIpAddresses'][0]['Association']['PublicIp']
+        private_ip = [interface['PrivateIpAddress'] for interface in all_priv_ints]
+        public_name = first_int['PrivateIpAddresses'][0]['Association']['PublicDnsName']
+        sg_id = first_int['Groups'][0]['GroupId']
+        sg_name = first_int['Groups'][0]['GroupName']
+        print(f'\n{last_status}\t{ id }\t{ public_ip }\t{ private_ip }\t{ public_name }\t'
+              f'{ host_port }:{ container_port }\t{ sg_id }\t{ sg_name }\n')
 
 
 if __name__ == '__main__':
