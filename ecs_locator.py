@@ -107,15 +107,14 @@ def main(cluster_name=None, service_name=None):
             ],
         )
 
-        id = ec2_id
-        all_priv_ints = response['Reservations'][0]['Instances'][0]['NetworkInterfaces']
-        first_int = response['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]
-        public_ip = first_int['PrivateIpAddresses'][0]['Association']['PublicIp']
-        private_ip = [interface['PrivateIpAddress'] for interface in all_priv_ints]
-        public_name = first_int['PrivateIpAddresses'][0]['Association']['PublicDnsName']
-        sg_id = first_int['Groups'][0]['GroupId']
-        sg_name = first_int['Groups'][0]['GroupName']
-        print(f'{last_status}\t{ id }\t{ public_ip }\t{ private_ip }\t{ public_name }\t'
+        all_private_interfaces = response['Reservations'][0]['Instances'][0]['NetworkInterfaces']
+        first_interface = response['Reservations'][0]['Instances'][0]['NetworkInterfaces'][0]
+        public_ip = first_interface['PrivateIpAddresses'][0]['Association']['PublicIp']
+        private_ips = [interface['PrivateIpAddress'] for interface in all_private_interfaces]
+        public_name = first_interface['PrivateIpAddresses'][0]['Association']['PublicDnsName']
+        sg_id = first_interface['Groups'][0]['GroupId']
+        sg_name = first_interface['Groups'][0]['GroupName']
+        print(f'{last_status}\t{ ec2_id }\t{ public_ip }\t{ private_ips }\t{ public_name }\t'
               f'{ host_port }:{ container_port }\t{ sg_id }\t{ sg_name }')
 
 
