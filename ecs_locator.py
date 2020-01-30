@@ -114,6 +114,7 @@ def main(cluster_name=None, service_name=None):
         public_name = first_interface['PrivateIpAddresses'][0]['Association']['PublicDnsName']
         sg_id = first_interface['Groups'][0]['GroupId']
         sg_name = first_interface['Groups'][0]['GroupName']
+
         print(f'{last_status}\t{ ec2_id }\t{ public_ip }\t{ private_ips }\t{ public_name }\t'
               f'{ host_port }:{ container_port }\t{ sg_id }\t{ sg_name }')
 
@@ -122,16 +123,17 @@ if __name__ == '__main__':
     try:
         cluster_name = sys.argv[1]
     except IndexError:
+        print()
         cluster_list()
+        print()
     else:
         try:
             service_name = sys.argv[2]
         except IndexError:
+            print()
             service_list(cluster_name=cluster_name)
+            print()
         else:
             print()
             main(cluster_name=cluster_name, service_name=service_name)
             print()
-
-
-
